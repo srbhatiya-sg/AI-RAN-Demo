@@ -1,106 +1,85 @@
-# Filename: ai_ran_demo.py
 import streamlit as st
-import requests
 import pandas as pd
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import datetime
+import time
 
 # -----------------------------
-# CONFIGURATION
+# CONFIG
 # -----------------------------
-# Replace with your Zapier Webhook URL
-WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/XXXXXXX/YYYYYYY"
-
-# Optional: Google Sheet CSV export link (if using for dashboard)
-GOOGLE_SHEET_CSV = "https://docs.google.com/spreadsheets/d/your_sheet_id/export?format=csv"
-
-st.set_page_config(
-    page_title="AI RAN Simulator",
-    layout="wide"
-)
-
-st.title("AI RAN Decision Simulator 🚀")
-st.markdown(
-    "Simulate mobile network/device scenarios and see AI recommendations in real-time."
-)
+SHEET_NAME = "YOUR_SHEET_NAME"
 
 # -----------------------------
-# 1. INPUTS
+# CONNECT GOOGLE SHEETS
 # -----------------------------
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+client = gspread.authorize(creds)
+sheet = client.open(SHEET_NAME).sheet1
+
+# -----------------------------
+# UI
+# -----------------------------
+st.set_page_config(page_title="AI RAN Simulator", layout="wide")
+st.title("📡 AI RAN Decision Simulator")
+
 st.sidebar.header("Input Parameters")
 
-signal_strength = st.sidebar.selectbox(
-    "Signal Strength", ["Strong", "Medium", "Weak"]
-)
+signal_strength = st.sidebar.selectbox("Signal Strength", ["Strong", "Medium", "Weak"])
+network_load = st.sidebar.selectbox("Network Load", ["Low", "Medium", "High"])
+user_type = st.sidebar.selectbox("User Type", ["Video", "Gaming", "Browsing", "Idle"])
+mobility = st.sidebar.selectbox("Mobility", ["Stationary", "Moving"])
+battery_level = st.sidebar.slider("Battery Level (%)", 0, 100, 50)
 
-network_load = st.sidebar.selectbox(
-    "Network Load", ["Low", "Medium", "High"]
-)
-
-user_type = st.sidebar.selectbox(
-    "User Type", ["Video", "Gaming", "Browsing", "Idle"]
-)
-
-mobility = st.sidebar.selectbox(
-    "Mobility", ["Stationary", "Moving"]
-)
-
-battery_level = st.sidebar.slider(
-    "Battery Level (%)", 0, 100, 50
-)
-
-# Submit button
+# -----------------------------
+# SUBMIT
+# -----------------------------
 if st.sidebar.button("Run AI Decision"):
 
-    st.info("Sending scenario to AI agent...")
+    row = [
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        signal_strength,
+        network_load,
+        user_type,
+        mobility,
+        battery_level,
+        "Pending", "", "", "", "", ""
+    ]
 
-    # -----------------------------
-    # 2. POST to Zapier Webhook
-    # -----------------------------
-    payload = {
-        "signal_strength": signal_strength,
-        "network_load": network_load,
-        "user_type": user_type,
-        "mobility": mobility,
-        "battery_level": battery_level
-    }
+    sheet.append_row(row)
+    st.info("Scenario submitted. Waiting for AI decision...")
 
-    try:
-        response = requests.post(WEBHOOK_URL, json=payload)
-        if response.status_code == 200:
-            ai_output = response.json()
-            st.success("AI Decision Received!")
-        else:
-            st.error(f"Error from Zapier: {response.status_code}")
-            ai_output = None
-    except Exception as e:
-        st.error(f"Webhook error: {e}")
-        ai_output = None
+    # Wait for Zapier to process
+    time.sleep(5)
 
-    # -----------------------------
-    # 3. DISPLAY OUTPUT
-    # -----------------------------
-    if ai_output:
-        st.subheader("AI Decision Outputs")
-        st.write("**Network Decision:**", ai_output.get("network_decision", "N/A"))
-        st.write("**Device Recommendation:**", ai_output.get("device_recommendation", "N/A"))
-        st.write("**Reasoning:**", ai_output.get("reasoning", "N/A"))
-        st.write("**Trade-Offs:**", ai_output.get("trade_offs", "N/A"))
-        st.write("**Impact:**", ai_output.get("impact", "N/A"))
+    # Read latest data
+    df = pd.DataFrame(sheet.get_all_records())
+
+    latest = df.iloc[-1]
+
+    if latest["Status"] == "Completed":
+        st.success("AI Decision Ready!")
+
+        st.subheader("📊 AI Output")
+
+        st.write("**Network Decision:**", latest["Network_Decision"])
+        st.write("**Device Recommendation:**", latest["Device_Recommendation"])
+        st.write("**Reasoning:**", latest["Reasoning"])
+        st.write("**Trade-Offs:**", latest["Trade_Offs"])
+        st.write("**Impact:**", latest["Impact"])
+    else:
+        st.warning("Still processing... refresh in a few seconds")
 
 # -----------------------------
-# 4. DASHBOARD / HISTORY (Optional)
+# DASHBOARD
 # -----------------------------
 st.markdown("---")
-st.header("Historical Scenarios Dashboard")
+st.header("📈 Historical Scenarios")
 
-try:
-    df = pd.read_csv(GOOGLE_SHEET_CSV)
-    st.dataframe(df)
-
-    # Simple charts
-    st.subheader("Battery vs Network Decision")
-    if "Battery_Level" in df.columns and "Network_Decision" in df.columns:
-        chart_data = df[["Battery_Level", "Network_Decision"]]
-        st.bar_chart(chart_data["Battery_Level"])
-
-except Exception as e:
-    st.warning("Could not load Google Sheet history. Make sure CSV link is public.")
+df = pd.DataFrame(sheet.get_all_records())
+st.dataframe(df.tail(10))
