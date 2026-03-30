@@ -1,39 +1,63 @@
 import streamlit as st
 import pandas as pd
 import json
-from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+from google.oauth2.service_account import Credentials
 import datetime
 import time
 
 # -----------------------------
-# STREAMLIT PAGE CONFIG
+# PAGE CONFIG
 # -----------------------------
-st.set_page_config(page_title="AI RAN Simulator", layout="wide")
-st.title("📡 AI RAN Decision Simulator")
+st.set_page_config(page_title="AI RAN Dashboard", layout="wide")
+
+st.title("📡 AI RAN Intelligent Network Dashboard")
 
 # -----------------------------
 # GOOGLE SHEETS CONNECTION
 # -----------------------------
-SHEET_NAME = "RAN_Scenarios" 
+SHEET_NAME = "RAN_Scenarios"
 
-scope = ["https://spreadsheets.google.com/feeds",
-         "https://www.googleapis.com/auth/drive"]
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
 
-try:
-    # Load JSON secret from Streamlit TOML
-    creds_dict = json.loads(st.secrets["google_creds"]["creds"])
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open(SHEET_NAME).sheet1
-except Exception as e:
-    st.error("Error connecting to Google Sheets. Make sure the secret is correct and the sheet is shared with the service account email.")
-    st.stop()
+creds_dict = json.loads(st.secrets["google_creds"]["creds"])
+creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+client = gspread.authorize(creds)
+sheet = client.open(SHEET_NAME).sheet1
 
 # -----------------------------
-# USER INPUT (SIDEBAR)
+# PARSE AI RESPONSE
 # -----------------------------
-st.sidebar.header("Input Parameters")
+def parse_ai_response(response):
+    sections = {
+        "Network Decision": "",
+        "Device Recommendation": "",
+        "Reasoning": "",
+        "Trade-Offs": "",
+        "Impact": ""
+    }
+
+    for key in sections.keys():
+        try:
+            part = response.split(key + ":")[1]
+            next_keys = [k for k in sections.keys() if k != key]
+            for nk in next_keys:
+                if nk + ":" in part:
+                    part = part.split(nk + ":")[0]
+            sections[key] = part.strip()
+        except:
+            sections[key] = "N/A"
+
+    return sections
+
+# -----------------------------
+# SIDEBAR INPUT (SIMULATOR)
+# -----------------------------
+st.sidebar.header("📲 Scenario Simulator")
+
 signal_strength = st.sidebar.selectbox("Signal Strength", ["Strong", "Medium", "Weak"])
 network_load = st.sidebar.selectbox("Network Load", ["Low", "Medium", "High"])
 user_type = st.sidebar.selectbox("User Type", ["Video", "Gaming", "Browsing", "Idle"])
@@ -41,50 +65,88 @@ mobility = st.sidebar.selectbox("Mobility", ["Stationary", "Moving"])
 battery_level = st.sidebar.slider("Battery Level (%)", 0, 100, 50)
 
 # -----------------------------
-# SUBMIT SCENARIO
+# SUBMIT BUTTON
 # -----------------------------
-if st.sidebar.button("Run AI Decision"):
-    try:
-        row = [
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            signal_strength,
-            network_load,
-            user_type,
-            mobility,
-            battery_level,
-            "Pending",  # Status
-            "", "", "", "", ""  # AI output columns: Network_Decision, Device_Recommendation, Reasoning, Trade_Offs, Impact
-        ]
-        sheet.append_row(row)
-        st.info("Scenario submitted. Waiting for AI decision...")
+if st.sidebar.button("🚀 Run AI Decision"):
+    row = [
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        signal_strength,
+        network_load,
+        user_type,
+        mobility,
+        battery_level,
+        "Pending",
+        ""  # AI_Response
+    ]
 
-        # Optional: short wait for Zapier processing
-        time.sleep(5)
-
-        df = pd.DataFrame(sheet.get_all_records())
-        latest = df.iloc[-1]
-
-        if latest["Status"] == "Completed":
-            st.success("AI Decision Ready!")
-            st.subheader("📊 AI Output")
-            st.write("**Network Decision:**", latest["Network_Decision"])
-            st.write("**Device Recommendation:**", latest["Device_Recommendation"])
-            st.write("**Reasoning:**", latest["Reasoning"])
-            st.write("**Trade-Offs:**", latest["Trade_Offs"])
-            st.write("**Impact:**", latest["Impact"])
-        else:
-            st.warning("Still processing... refresh in a few seconds")
-
-    except Exception as e:
-        st.error(f"Error submitting scenario: {e}")
+    sheet.append_row(row)
+    st.sidebar.success("Scenario submitted!")
 
 # -----------------------------
-# DASHBOARD / HISTORICAL SCENARIOS
+# LOAD DATA
+# -----------------------------
+df = pd.DataFrame(sheet.get_all_records())
+
+if len(df) == 0:
+    st.warning("No data yet.")
+    st.stop()
+
+latest = df.iloc[-1]
+
+# -----------------------------
+# KPI METRICS (TOP DASHBOARD)
+# -----------------------------
+st.markdown("## 📊 Network KPIs")
+
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("📶 Signal", latest["Signal_Strength"])
+col2.metric("📡 Load", latest["Network_Load"])
+col3.metric("🔋 Battery", f"{latest['Battery_Level']}%")
+col4.metric("🚶 Mobility", latest["Mobility"])
+
+# -----------------------------
+# AI DECISION PANEL
 # -----------------------------
 st.markdown("---")
-st.header("📈 Last 10 Scenarios")
-try:
-    df = pd.DataFrame(sheet.get_all_records())
-    st.dataframe(df.tail(10))
-except Exception as e:
-    st.warning("Unable to load historical data yet.")
+st.markdown("## 🤖 AI RAN Decision Engine")
+
+if latest["Status"] == "Completed":
+
+    parsed = parse_ai_response(latest["AI_Response"])
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 📡 Network Decision")
+        st.success(parsed["Network Decision"])
+
+        st.markdown("### ⚙️ Device Recommendation")
+        st.info(parsed["Device Recommendation"])
+
+    with col2:
+        st.markdown("### 🧠 Reasoning")
+        st.write(parsed["Reasoning"])
+
+        st.markdown("### ⚖️ Trade-Offs")
+        st.write(parsed["Trade-Offs"])
+
+        st.markdown("### 📊 Impact")
+        st.write(parsed["Impact"])
+
+else:
+    st.warning("⏳ Waiting for AI processing... Refresh in a few seconds")
+
+# -----------------------------
+# AUTO REFRESH (LIVE FEEL)
+# -----------------------------
+time.sleep(5)
+st.experimental_rerun()
+
+# -----------------------------
+# HISTORICAL DATA
+# -----------------------------
+st.markdown("---")
+st.markdown("## 📈 Historical Scenarios")
+
+st.dataframe(df.tail(10), use_container_width=True)
