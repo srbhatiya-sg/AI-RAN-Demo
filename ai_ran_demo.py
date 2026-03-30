@@ -1,26 +1,18 @@
+iimport json
 import streamlit as st
-import pandas as pd
-import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import datetime
-import time
+import gspread
 
-# -----------------------------
-# CONFIG
-# -----------------------------
-SHEET_NAME = "RAN_Scenarios"
+scope = ["https://spreadsheets.google.com/feeds",
+         "https://www.googleapis.com/auth/drive"]
 
-# -----------------------------
-# CONNECT GOOGLE SHEETS
-# -----------------------------
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
+# Load JSON string from Streamlit Secrets
+creds_dict = json.loads(st.secrets["google_creds"]["creds"])
 
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open(SHEET_NAME).sheet1
+
+sheet = client.open("RAN_Scenarios").sheet1
 
 # -----------------------------
 # UI
