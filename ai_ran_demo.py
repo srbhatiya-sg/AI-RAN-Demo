@@ -96,14 +96,14 @@ latest = df.iloc[-1]
 # -----------------------------
 # KPI METRICS (TOP DASHBOARD)
 # -----------------------------
-st.markdown("## 📊 Network KPIs")
+#st.markdown("## 📊 Network KPIs")
 
-col1, col2, col3, col4 = st.columns(4)
+#col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("📶 Signal", latest["signal_strength"])
-col2.metric("📡 Load", latest["network_load"])
-col3.metric("🔋 Battery", f"{latest['battery_level']}%")
-col4.metric("🚶 Mobility", latest["mobility"])
+#col1.metric("📶 Signal", latest["signal_strength"])
+#col2.metric("📡 Load", latest["network_load"])
+#col3.metric("🔋 Battery", f"{latest['battery_level']}%")
+#col4.metric("🚶 Mobility", latest["mobility"])
 
 # -----------------------------
 # AI DECISION PANEL
