@@ -8,7 +8,7 @@ import time
 # -----------------------------
 # CONFIG
 # -----------------------------
-SHEET_NAME = "YOUR_SHEET_NAME"
+SHEET_NAME = "RAN_Scenarios"
 
 # -----------------------------
 # CONNECT GOOGLE SHEETS
