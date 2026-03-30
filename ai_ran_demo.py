@@ -100,10 +100,10 @@ st.markdown("## 📊 Network KPIs")
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("📶 Signal", latest["Signal_Strength"])
-col2.metric("📡 Load", latest["Network_Load"])
-col3.metric("🔋 Battery", f"{latest['Battery_Level']}%")
-col4.metric("🚶 Mobility", latest["Mobility"])
+col1.metric("📶 Signal", latest["signal_strength"])
+col2.metric("📡 Load", latest["network_load"])
+col3.metric("🔋 Battery", f"{latest['battery_level']}%")
+col4.metric("🚶 Mobility", latest["mobility"])
 
 # -----------------------------
 # AI DECISION PANEL
